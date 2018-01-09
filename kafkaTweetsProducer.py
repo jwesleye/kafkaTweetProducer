@@ -1,10 +1,13 @@
 
 try:
+    import json
     import argparse, sys
     from tweepy.streaming import StreamListener
     from tweepy import OAuthHandler
     from tweepy import Stream
-    from kafka import SimpleProducer, SimpleClient
+    # from kafka import SimpleProducer, SimpleClient
+    from time import sleep
+    import kafka
     #import daemon
     print("imports are good")
 except Exception as e:
@@ -25,23 +28,21 @@ args=parser.parse_args()
 print(args)
 
 try:
-    #client = SimpleClient("127.0.0.1:9092") #for local testing
-    client = SimpleClient(args.kafkaBrokerUrl + ":9092")
-    producer = SimpleProducer(client)
+    producer = kafka.KafkaProducer(bootstrap_servers=[args.kafkaBrokerUrl + ':9092'],api_version=(0,10,1), acks="all")
 
 except Exception as e:
-    print("ERROR on kafka client", e)
+    print("ERROR on kafka setup", e)
 
 
 class StdOutListener(StreamListener):
     def on_data(self, data):
+        producer.send("tweets", json.dumps(data).encode('utf-8'))
         print(data)
-        producer.send_messages("test", data.encode('utf-8'))
         return True
 
     def on_error(self, status):
         print(status)
-        producer.send_messages("errors", status.encode('utf-8'))
+        producer.send("errors", status.encode('utf-8'))
         return False
 
 
@@ -51,7 +52,7 @@ def startStream():
     auth.set_access_token(args.accessToken, args.accessTokenSecret)
     stream = Stream(auth, l)
     print("Monitoring for tweets")
-    stream.filter(track=["bitcoin"], async=True)
+    stream.filter(track=["kafka", "scala", "confluent"], async=True)
 
 
 if producer:
